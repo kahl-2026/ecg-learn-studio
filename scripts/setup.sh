@@ -87,7 +87,12 @@ install_system_deps() {
             
         fedora|rhel|centos|rocky|almalinux)
             $SUDO dnf check-update || true
-            $SUDO dnf groupinstall -y "Development Tools"
+            # Try dnf5 syntax first, fall back to dnf4
+            if dnf --version 2>/dev/null | grep -q "dnf5"; then
+                $SUDO dnf install -y @development-tools
+            else
+                $SUDO dnf groupinstall -y "Development Tools" || $SUDO dnf group install -y "Development Tools"
+            fi
             $SUDO dnf install -y \
                 git \
                 curl \
@@ -98,7 +103,10 @@ install_system_deps() {
                 cmake \
                 pkg-config \
                 openssl-devel \
-                libffi-devel
+                libffi-devel \
+                gcc \
+                gcc-c++ \
+                make
             ;;
             
         *)
