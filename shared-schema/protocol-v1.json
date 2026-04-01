@@ -1,0 +1,185 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ECG Learn Studio IPC Protocol v1",
+  "description": "JSON-based request/response protocol for Rust TUI <-> Python ML backend communication",
+  
+  "definitions": {
+    "Request": {
+      "type": "object",
+      "required": ["id", "version", "method", "params"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique request identifier for response matching"
+        },
+        "version": {
+          "type": "string",
+          "enum": ["1.0"],
+          "description": "Protocol version"
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "ping",
+            "load_data",
+            "get_datasets",
+            "preprocess",
+            "extract_features",
+            "train_model",
+            "get_model_info",
+            "predict",
+            "explain",
+            "get_lessons",
+            "get_lesson_content",
+            "get_glossary",
+            "get_quiz_questions",
+            "submit_quiz_answer",
+            "get_quiz_progress"
+          ]
+        },
+        "params": {
+          "type": "object",
+          "description": "Method-specific parameters"
+        }
+      }
+    },
+    
+    "Response": {
+      "type": "object",
+      "required": ["id", "version", "success"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Request ID this response corresponds to"
+        },
+        "version": {
+          "type": "string",
+          "enum": ["1.0"]
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "result": {
+          "description": "Response data on success"
+        },
+        "error": {
+          "type": "object",
+          "properties": {
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+            "details": {}
+          }
+        }
+      }
+    },
+    
+    "ProgressUpdate": {
+      "type": "object",
+      "required": ["type", "data"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["progress", "log", "metric"]
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "percentage": {"type": "number"},
+            "message": {"type": "string"},
+            "eta_seconds": {"type": "number"},
+            "metrics": {"type": "object"}
+          }
+        }
+      }
+    }
+  },
+  
+  "methods": {
+    "ping": {
+      "params": {},
+      "result": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string"},
+          "backend_version": {"type": "string"},
+          "python_version": {"type": "string"}
+        }
+      }
+    },
+    
+    "load_data": {
+      "params": {
+        "type": "object",
+        "required": ["dataset_type"],
+        "properties": {
+          "dataset_type": {
+            "type": "string",
+            "enum": ["synthetic", "mitbih", "ptbxl"]
+          },
+          "count": {"type": "integer"},
+          "classes": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {"type": "string"},
+          "sample_count": {"type": "integer"},
+          "class_distribution": {"type": "object"},
+          "sampling_rate": {"type": "number"}
+        }
+      }
+    },
+    
+    "train_model": {
+      "params": {
+        "type": "object",
+        "required": ["model_type", "dataset_id"],
+        "properties": {
+          "model_type": {
+            "type": "string",
+            "enum": ["logistic", "random_forest", "cnn"]
+          },
+          "dataset_id": {"type": "string"},
+          "hyperparameters": {"type": "object"},
+          "validation_split": {"type": "number"},
+          "epochs": {"type": "integer"},
+          "batch_size": {"type": "integer"}
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "model_id": {"type": "string"},
+          "training_history": {"type": "object"},
+          "final_metrics": {"type": "object"},
+          "confusion_matrix": {"type": "array"}
+        }
+      }
+    },
+    
+    "predict": {
+      "params": {
+        "type": "object",
+        "required": ["model_id", "data"],
+        "properties": {
+          "model_id": {"type": "string"},
+          "data": {"type": "array"},
+          "return_probabilities": {"type": "boolean"}
+        }
+      },
+      "result": {
+        "type": "object",
+        "properties": {
+          "prediction": {"type": "string"},
+          "confidence": {"type": "number"},
+          "probabilities": {"type": "object"},
+          "uncertainty_warning": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}
