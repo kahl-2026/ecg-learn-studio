@@ -1,19 +1,19 @@
 // Chart rendering utilities for ECG signals
 
 use ratatui::{
-    layout::Rect,
     style::{Color, Style},
     symbols,
-    text::Span,
     widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
 };
 
 pub struct ECGChart {
     pub data: Vec<(f64, f64)>,
+#[allow(dead_code)]
     pub title: String,
 }
 
 impl ECGChart {
+#[allow(dead_code)]
     pub fn new(signal: &[f64], title: String) -> Self {
         let data: Vec<(f64, f64)> = signal
             .iter()

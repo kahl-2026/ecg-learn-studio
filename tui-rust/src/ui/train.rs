@@ -1,6 +1,6 @@
 use crate::app::App;
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::{
     layout::Alignment,
     style::{Color, Modifier, Style},

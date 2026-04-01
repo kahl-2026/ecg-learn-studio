@@ -120,6 +120,7 @@ impl Drop for PythonBackend {
 pub mod protocol {
     use super::*;
 
+    #[allow(dead_code)]
     pub fn load_data(backend: &mut PythonBackend, dataset_type: &str, count: usize) -> Result<serde_json::Value> {
         let response = backend.send_request("load_data", json!({
             "dataset_type": dataset_type,
@@ -133,6 +134,7 @@ pub mod protocol {
         }
     }
 
+    #[allow(dead_code)]
     pub fn train_model(
         backend: &mut PythonBackend,
         model_type: &str,
@@ -150,6 +152,7 @@ pub mod protocol {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get_lessons(backend: &mut PythonBackend) -> Result<serde_json::Value> {
         let response = backend.send_request("get_lessons", json!({}))?;
         
