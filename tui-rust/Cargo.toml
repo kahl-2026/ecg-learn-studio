@@ -1,0 +1,27 @@
+[package]
+name = "ecg-learn-tui"
+version = "1.0.0"
+edition = "2021"
+authors = ["ECG Learn Studio Contributors"]
+description = "Terminal-based ECG learning and ML analysis platform"
+license = "MIT"
+
+[dependencies]
+ratatui = "0.26"
+crossterm = "0.27"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.35", features = ["full"] }
+anyhow = "1.0"
+chrono = "0.4"
+dirs = "5.0"
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = "3.8"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
