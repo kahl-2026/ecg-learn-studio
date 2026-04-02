@@ -39,6 +39,7 @@ env/
 .DS_Store
 
 # Project specific
+PROJECT_CHECKLIST.txt
 datasets/mitbih/*
 datasets/ptbxl/*
 !datasets/mitbih/.gitkeep
