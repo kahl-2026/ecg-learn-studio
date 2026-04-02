@@ -49,6 +49,7 @@ impl PythonBackend {
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
+            .current_dir("ml-python/src")
             .spawn()
             .context("Failed to start Python backend")?;
 
@@ -92,6 +93,20 @@ impl PythonBackend {
         }
     }
 
+    /// Generic request method that returns raw JSON response
+    /// Used by UI screens for flexible backend communication
+    pub fn request(&mut self, method: &str, params: serde_json::Value) -> Result<serde_json::Value> {
+        let response = self.send_request(method, params)?;
+        
+        // Convert Response struct to JSON Value for UI consumption
+        Ok(json!({
+            "id": response.id,
+            "success": response.success,
+            "result": response.result,
+            "error": response.error
+        }))
+    }
+
     pub fn ping(&mut self) -> Result<PingResponse> {
         let response = self.send_request("ping", json!({}))?;
         
@@ -120,6 +135,7 @@ impl Drop for PythonBackend {
 pub mod protocol {
     use super::*;
 
+    /// Load ECG data from a dataset
     pub fn load_data(backend: &mut PythonBackend, dataset_type: &str, count: usize) -> Result<serde_json::Value> {
         let response = backend.send_request("load_data", json!({
             "dataset_type": dataset_type,
@@ -133,14 +149,21 @@ pub mod protocol {
         }
     }
 
+    /// Train a model with specified parameters
     pub fn train_model(
         backend: &mut PythonBackend,
         model_type: &str,
-        dataset_id: &str
+        dataset_type: &str,
+        epochs: u32,
+        learning_rate: f64,
+        train_split: f64
     ) -> Result<serde_json::Value> {
         let response = backend.send_request("train_model", json!({
             "model_type": model_type,
-            "dataset_id": dataset_id
+            "dataset_type": dataset_type,
+            "epochs": epochs,
+            "learning_rate": learning_rate,
+            "train_split": train_split
         }))?;
         
         if response.success {
@@ -150,6 +173,7 @@ pub mod protocol {
         }
     }
 
+    /// Get list of available lessons
     pub fn get_lessons(backend: &mut PythonBackend) -> Result<serde_json::Value> {
         let response = backend.send_request("get_lessons", json!({}))?;
         
@@ -157,6 +181,76 @@ pub mod protocol {
             response.result.context("No result in response")
         } else {
             anyhow::bail!("Get lessons failed: {:?}", response.error);
+        }
+    }
+
+    /// Get detailed content for a specific lesson
+    pub fn get_lesson_content(backend: &mut PythonBackend, lesson_id: &str, difficulty: &str) -> Result<serde_json::Value> {
+        let response = backend.send_request("get_lesson_content", json!({
+            "lesson_id": lesson_id,
+            "difficulty": difficulty
+        }))?;
+        
+        if response.success {
+            response.result.context("No result in response")
+        } else {
+            anyhow::bail!("Get lesson content failed: {:?}", response.error);
+        }
+    }
+
+    /// Run prediction on a signal
+    pub fn predict(backend: &mut PythonBackend, model_id: &str, signal: &[f64]) -> Result<serde_json::Value> {
+        let response = backend.send_request("predict", json!({
+            "model_id": model_id,
+            "signal": signal
+        }))?;
+        
+        if response.success {
+            response.result.context("No result in response")
+        } else {
+            anyhow::bail!("Prediction failed: {:?}", response.error);
+        }
+    }
+
+    /// Get explanation for a prediction
+    pub fn explain(backend: &mut PythonBackend, model_id: &str, predicted_class: &str) -> Result<serde_json::Value> {
+        let response = backend.send_request("explain", json!({
+            "model_id": model_id,
+            "predicted_class": predicted_class
+        }))?;
+        
+        if response.success {
+            response.result.context("No result in response")
+        } else {
+            anyhow::bail!("Explanation failed: {:?}", response.error);
+        }
+    }
+
+    /// Get quiz questions for a category
+    pub fn get_quiz_questions(backend: &mut PythonBackend, category: &str, count: usize) -> Result<serde_json::Value> {
+        let response = backend.send_request("get_quiz_questions", json!({
+            "category": category,
+            "count": count
+        }))?;
+        
+        if response.success {
+            response.result.context("No result in response")
+        } else {
+            anyhow::bail!("Get quiz questions failed: {:?}", response.error);
+        }
+    }
+
+    /// Submit a quiz answer and get feedback
+    pub fn submit_quiz_answer(backend: &mut PythonBackend, question_id: &str, answer: &str) -> Result<serde_json::Value> {
+        let response = backend.send_request("submit_quiz_answer", json!({
+            "question_id": question_id,
+            "answer": answer
+        }))?;
+        
+        if response.success {
+            response.result.context("No result in response")
+        } else {
+            anyhow::bail!("Submit answer failed: {:?}", response.error);
         }
     }
 }

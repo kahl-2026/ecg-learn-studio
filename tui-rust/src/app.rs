@@ -2,6 +2,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 use crate::backend::PythonBackend;
 use crate::config::Config;
@@ -18,14 +19,183 @@ pub enum Screen {
     Help,
 }
 
+/// State for the Learn screen
+#[derive(Debug, Clone, Default)]
+pub struct LearnState {
+    pub lessons: Vec<LessonSummary>,
+    pub selected_index: usize,
+    pub viewing_content: bool,
+    pub current_content: Option<LessonContent>,
+    pub beginner_mode: bool,
+    pub loading: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LessonSummary {
+    pub id: String,
+    pub title: String,
+    pub category: String,
+    pub duration_minutes: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LessonContent {
+    pub id: String,
+    pub title: String,
+    pub content: String,
+    pub key_points: Vec<String>,
+}
+
+/// State for the Explorer screen
+#[derive(Debug, Clone, Default)]
+pub struct ExplorerState {
+    pub dataset_type: DatasetType,
+    pub signal_data: Option<SignalData>,
+    pub viewport_start: usize,
+    pub zoom_level: f64,
+    pub selected_signal_index: usize,
+    pub loading: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DatasetType {
+    #[default]
+    Synthetic,
+    MitBih,
+    PtbXl,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignalData {
+    pub signals: Vec<Vec<f64>>,
+    pub labels: Vec<String>,
+    pub sample_rate: f64,
+    pub total_samples: usize,
+}
+
+/// State for the Train screen
+#[derive(Debug, Clone, Default)]
+pub struct TrainState {
+    pub model_type: ModelType,
+    pub selected_dataset: DatasetType,
+    pub epochs: u32,
+    pub learning_rate: f64,
+    pub train_split: f64,
+    pub training: bool,
+    pub current_epoch: u32,
+    pub training_progress: f64,
+    pub training_metrics: Option<TrainingMetrics>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ModelType {
+    #[default]
+    LogisticRegression,
+    RandomForest,
+    CNN,
+}
+
+impl ModelType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ModelType::LogisticRegression => "logistic",
+            ModelType::RandomForest => "random_forest",
+            ModelType::CNN => "cnn",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrainingMetrics {
+    pub accuracy: f64,
+    pub precision: f64,
+    pub recall: f64,
+    pub f1_score: f64,
+    pub confusion_matrix: Vec<Vec<u32>>,
+    pub class_names: Vec<String>,
+    pub explanation: String,
+}
+
+/// State for the Predict screen
+#[derive(Debug, Clone, Default)]
+pub struct PredictState {
+    pub available_models: Vec<String>,
+    pub selected_model_index: usize,
+    pub model_loaded: bool,
+    pub signal_loaded: bool,
+    pub signal_data: Option<Vec<f64>>,
+    pub prediction: Option<PredictionResult>,
+    pub explanation: Option<String>,
+    pub loading: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PredictionResult {
+    pub predicted_class: String,
+    pub confidence: f64,
+    pub top_predictions: Vec<(String, f64)>,
+    pub is_uncertain: bool,
+    pub uncertainty_message: Option<String>,
+}
+
+/// State for the Quiz screen
+#[derive(Debug, Clone, Default)]
+pub struct QuizState {
+    pub mode: QuizMode,
+    pub categories: Vec<String>,
+    pub selected_category_index: usize,
+    pub current_question: Option<QuizQuestion>,
+    pub selected_answer: Option<usize>,
+    pub feedback: Option<QuizFeedback>,
+    pub score: u32,
+    pub total_answered: u32,
+    pub streak: u32,
+    pub category_stats: HashMap<String, (u32, u32)>, // (correct, total)
+    pub loading: bool,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum QuizMode {
+    #[default]
+    CategorySelect,
+    Answering,
+    ShowingFeedback,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuizQuestion {
+    pub id: String,
+    pub question: String,
+    pub options: Vec<String>,
+    pub category: String,
+    pub difficulty: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QuizFeedback {
+    pub correct: bool,
+    pub correct_answer: String,
+    pub explanation: String,
+}
+
 pub struct App {
     pub current_screen: Screen,
-    #[allow(dead_code)]
     pub config: Config,
     pub backend: PythonBackend,
     pub backend_status: BackendStatus,
-    #[allow(dead_code)]
     pub quit_requested: bool,
+    
+    // Screen-specific state
+    pub learn_state: LearnState,
+    pub explorer_state: ExplorerState,
+    pub train_state: TrainState,
+    pub predict_state: PredictState,
+    pub quiz_state: QuizState,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +209,27 @@ impl App {
         let config = Config::load_or_default()?;
         let backend = PythonBackend::new()?;
 
+        // Initialize quiz categories
+        let mut quiz_state = QuizState::default();
+        quiz_state.categories = vec![
+            "ECG Basics".to_string(),
+            "Wave Identification".to_string(),
+            "Intervals".to_string(),
+            "Rhythm Recognition".to_string(),
+            "ML Metrics".to_string(),
+            "Arrhythmias".to_string(),
+        ];
+
+        // Initialize train state with defaults
+        let mut train_state = TrainState::default();
+        train_state.epochs = 10;
+        train_state.learning_rate = 0.001;
+        train_state.train_split = 0.8;
+
+        // Initialize explorer state
+        let mut explorer_state = ExplorerState::default();
+        explorer_state.zoom_level = 1.0;
+
         Ok(Self {
             current_screen: Screen::Home,
             config,
@@ -48,6 +239,14 @@ impl App {
                 message: "Connecting...".to_string(),
             },
             quit_requested: false,
+            learn_state: LearnState {
+                beginner_mode: true,
+                ..Default::default()
+            },
+            explorer_state,
+            train_state,
+            predict_state: PredictState::default(),
+            quiz_state,
         })
     }
 

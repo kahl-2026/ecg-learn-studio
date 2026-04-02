@@ -7,13 +7,11 @@ use ratatui::{
     widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
 };
 
-#[allow(dead_code)]
 pub struct ECGChart {
     pub data: Vec<(f64, f64)>,
     pub title: String,
 }
 
-#[allow(dead_code)]
 impl ECGChart {
     pub fn new(signal: &[f64], title: String) -> Self {
         let data: Vec<(f64, f64)> = signal
@@ -36,6 +34,11 @@ impl ECGChart {
         let x_max = self.data.len() as f64;
         let y_min = self.data.iter().map(|(_, y)| y).fold(f64::INFINITY, |a, &b| a.min(b));
         let y_max = self.data.iter().map(|(_, y)| y).fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+        
+        // Add some padding to y bounds
+        let y_padding = (y_max - y_min) * 0.1;
+        let y_min = y_min - y_padding;
+        let y_max = y_max + y_padding;
 
         Chart::new(vec![dataset])
             .block(Block::default().title(self.title.clone()).borders(Borders::ALL))

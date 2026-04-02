@@ -7,3 +7,5 @@ torch>=2.1.0
 wfdb>=4.1.0
 requests>=2.31.0
 tqdm>=4.66.0
+pytest>=7.0.0
+pytest-cov>=4.0.0
