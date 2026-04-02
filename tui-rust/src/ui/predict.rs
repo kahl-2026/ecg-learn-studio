@@ -6,7 +6,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, List, ListItem, ListState, Paragraph, Wrap},
+    widgets::{Block, Borders, List, ListItem, ListState, Paragraph, Wrap},
     Frame,
 };
 
@@ -241,7 +241,10 @@ fn render_result(frame: &mut Frame, app: &App, area: Rect) {
         ];
 
         // Confidence bar visual
-        result_lines.push(Line::from(format!("Confidence: {:.1}%", result.confidence * 100.0)));
+        result_lines.push(Line::from(vec![
+            Span::raw("Confidence: "),
+            Span::styled(format!("{:.1}%", result.confidence * 100.0), Style::default().fg(confidence_color).add_modifier(Modifier::BOLD)),
+        ]));
         
         // Top predictions
         result_lines.push(Line::from(""));

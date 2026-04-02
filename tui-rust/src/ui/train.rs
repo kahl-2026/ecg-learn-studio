@@ -399,7 +399,7 @@ fn start_training(app: &mut App) -> Result<()> {
                     .to_string());
             }
         }
-        Err(e) => {
+        Err(_) => {
             app.train_state.training = false;
             // Provide demo results when backend unavailable
             app.train_state.training_metrics = Some(TrainingMetrics {

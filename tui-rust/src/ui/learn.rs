@@ -1,4 +1,4 @@
-use crate::app::{App, LessonContent, LessonSummary};
+use crate::app::{App, LessonContent};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
@@ -414,9 +414,9 @@ pub fn handle_input(app: &mut App, key: KeyEvent) -> Result<()> {
                 // Load will happen on next update cycle
             }
         }
-        KeyCode::Char('1'..='7') => {
+        KeyCode::Char(c @ '1'..='7') => {
             if !app.learn_state.viewing_content {
-                let num = key.code.to_string().parse::<usize>().unwrap_or(1);
+                let num = c.to_digit(10).unwrap_or(1) as usize;
                 if num > 0 && num <= max_lessons {
                     app.learn_state.selected_index = num - 1;
                 }

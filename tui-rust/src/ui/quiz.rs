@@ -149,7 +149,7 @@ fn render_question(frame: &mut Frame, app: &App, area: Rect) {
 
     // Progress bar
     let progress = if app.quiz_state.total_answered > 0 {
-        (app.quiz_state.score as f64 / app.quiz_state.total_answered as f64)
+        app.quiz_state.score as f64 / app.quiz_state.total_answered as f64
     } else {
         0.0
     };
@@ -290,8 +290,8 @@ fn handle_category_select(app: &mut App, key: KeyEvent) -> Result<()> {
                 app.quiz_state.selected_category_index += 1;
             }
         }
-        KeyCode::Char('1'..='6') => {
-            let num = key.code.to_string().parse::<usize>().unwrap_or(1);
+        KeyCode::Char(c @ '1'..='6') => {
+            let num = c.to_digit(10).unwrap_or(1) as usize;
             if num > 0 && num <= app.quiz_state.categories.len() {
                 app.quiz_state.selected_category_index = num - 1;
             }
@@ -407,11 +407,14 @@ fn load_question(app: &mut App) -> Result<()> {
 }
 
 fn submit_answer(app: &mut App, answer_idx: usize) -> Result<()> {
-    if let Some(ref question) = app.quiz_state.current_question {
-        let selected_answer = question.options.get(answer_idx).cloned().unwrap_or_default();
-        
+    // Clone the question data we need before mutating app
+    let question_data = app.quiz_state.current_question.as_ref().map(|q| {
+        (q.id.clone(), q.options.get(answer_idx).cloned().unwrap_or_default(), q.category.clone(), q.clone())
+    });
+    
+    if let Some((question_id, selected_answer, category, question)) = question_data {
         match app.backend.request("submit_quiz_answer", serde_json::json!({
-            "question_id": question.id,
+            "question_id": question_id,
             "answer": selected_answer
         })) {
             Ok(response) => {
@@ -426,7 +429,7 @@ fn submit_answer(app: &mut App, answer_idx: usize) -> Result<()> {
                         .unwrap_or("")
                         .to_string();
                     
-                    update_quiz_stats(app, &question.category, correct);
+                    update_quiz_stats(app, &category, correct);
                     
                     app.quiz_state.feedback = Some(QuizFeedback {
                         correct,
@@ -441,8 +444,8 @@ fn submit_answer(app: &mut App, answer_idx: usize) -> Result<()> {
         }
 
         // Fallback demo answer checking
-        let (correct, correct_answer, explanation) = check_demo_answer(question, answer_idx);
-        update_quiz_stats(app, &question.category, correct);
+        let (correct, correct_answer, explanation) = check_demo_answer(&question, answer_idx);
+        update_quiz_stats(app, &category, correct);
         
         app.quiz_state.feedback = Some(QuizFeedback {
             correct,

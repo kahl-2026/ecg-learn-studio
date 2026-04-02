@@ -22,7 +22,7 @@ pub fn create_layout(frame: &Frame) -> (Rect, Rect, Rect) {
             Constraint::Min(0),     // Content
             Constraint::Length(3),  // Footer with hotkeys
         ])
-        .split(frame.area());
+        .split(frame.size());
 
     (chunks[0], chunks[1], chunks[2])
 }
@@ -71,7 +71,7 @@ pub fn render_footer(frame: &mut Frame, area: Rect, hotkeys: Vec<(&str, &str)>) 
 
 /// Render an error popup in the center of the screen
 pub fn render_error_popup(frame: &mut Frame, error_message: &str) {
-    let area = frame.area();
+    let area = frame.size();
     
     // Calculate popup size and position
     let popup_width = (area.width * 60 / 100).min(60);
@@ -188,7 +188,7 @@ pub fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
 
 /// Render a confirmation dialog
 pub fn render_confirm_dialog(frame: &mut Frame, title: &str, message: &str) {
-    let area = frame.area();
+    let area = frame.size();
     let popup_area = centered_rect(50, 7, area);
     
     frame.render_widget(Clear, popup_area);

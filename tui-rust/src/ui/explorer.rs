@@ -346,7 +346,7 @@ fn load_dataset(app: &mut App) -> Result<()> {
                     .to_string());
             }
         }
-        Err(e) => {
+        Err(_) => {
             app.explorer_state.loading = false;
             // Generate synthetic data locally as fallback
             app.explorer_state.signal_data = Some(generate_demo_signals());
