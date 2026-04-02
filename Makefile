@@ -1,4 +1,4 @@
-.PHONY: help build run test lint clean install download-datasets
+.PHONY: help build run test tests lint clean install download-datasets
 
 # Default target
 help:
@@ -37,6 +37,9 @@ run: build
 
 # Testing
 test: test-rust test-python
+
+# Alias for convenience
+tests: test
 
 test-rust:
 	@echo "Running Rust tests..."

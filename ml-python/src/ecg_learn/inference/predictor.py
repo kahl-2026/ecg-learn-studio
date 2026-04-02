@@ -48,6 +48,7 @@ class ECGPredictor:
         
         result = {
             'prediction': self.class_names[prediction],
+            'predicted_class': self.class_names[prediction],
             'prediction_idx': int(prediction),
             'confidence': float(probabilities[prediction]),
             'probabilities': {
@@ -57,11 +58,13 @@ class ECGPredictor:
             'top_predictions': [
                 {
                     'class': self.class_names[idx],
+                    'label': self.class_names[idx],
                     'probability': float(probabilities[idx])
                 }
                 for idx in top_indices[:3]
             ],
-            'uncertainty_warning': probabilities[prediction] < self.confidence_threshold
+            'uncertainty_warning': probabilities[prediction] < self.confidence_threshold,
+            'is_uncertain': probabilities[prediction] < self.confidence_threshold,
         }
         
         # Add uncertainty explanation

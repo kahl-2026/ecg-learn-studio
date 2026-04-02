@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
+from sklearn.preprocessing import StandardScaler
 from typing import Dict, Tuple, Optional
 import pickle
 
@@ -22,6 +23,7 @@ class BaselineModels:
         self.model_type = model_type
         self.random_state = random_state
         self.model = None
+        self.scaler = None
         self.is_trained = False
         
         if model_type == 'logistic':
@@ -62,12 +64,17 @@ class BaselineModels:
                 self.model.set_params(class_weight=class_weights)
             elif self.model_type == 'random_forest':
                 self.model.set_params(class_weight=class_weights)
-        
-        self.model.fit(X_train, y_train)
+
+        X_fit = X_train
+        if self.model_type == 'logistic':
+            self.scaler = StandardScaler()
+            X_fit = self.scaler.fit_transform(X_train)
+
+        self.model.fit(X_fit, y_train)
         self.is_trained = True
         
         # Training accuracy
-        train_score = self.model.score(X_train, y_train)
+        train_score = self.model.score(X_fit, y_train)
         
         return {
             'train_accuracy': float(train_score),
@@ -87,8 +94,9 @@ class BaselineModels:
         """
         if not self.is_trained:
             raise ValueError("Model not trained yet")
-        
-        return self.model.predict(X)
+
+        X_pred = self.scaler.transform(X) if self.model_type == 'logistic' and self.scaler is not None else X
+        return self.model.predict(X_pred)
     
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """
@@ -102,8 +110,9 @@ class BaselineModels:
         """
         if not self.is_trained:
             raise ValueError("Model not trained yet")
-        
-        return self.model.predict_proba(X)
+
+        X_pred = self.scaler.transform(X) if self.model_type == 'logistic' and self.scaler is not None else X
+        return self.model.predict_proba(X_pred)
     
     def get_feature_importance(self, feature_names: list = None) -> Dict:
         """
@@ -201,6 +210,7 @@ class BaselineModels:
         with open(filepath, 'wb') as f:
             pickle.dump({
                 'model': self.model,
+                'scaler': self.scaler,
                 'model_type': self.model_type,
                 'random_state': self.random_state
             }, f)
@@ -211,6 +221,7 @@ class BaselineModels:
             data = pickle.load(f)
         
         self.model = data['model']
+        self.scaler = data.get('scaler')
         self.model_type = data['model_type']
         self.random_state = data['random_state']
         self.is_trained = True
