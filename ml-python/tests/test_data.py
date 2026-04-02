@@ -178,5 +178,22 @@ class TestDataQuality:
             assert np.std(signal) > 0.01
 
 
+class TestDataPackageImports:
+    """Test data package import behavior for module execution compatibility."""
+
+    def test_data_package_lazy_import_of_synthetic(self):
+        import importlib
+        import sys
+
+        sys.modules.pop('ecg_learn.data', None)
+        sys.modules.pop('ecg_learn.data.synthetic', None)
+
+        data_module = importlib.import_module('ecg_learn.data')
+        assert 'ecg_learn.data.synthetic' not in sys.modules
+
+        _ = data_module.SyntheticECGGenerator
+        assert 'ecg_learn.data.synthetic' in sys.modules
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

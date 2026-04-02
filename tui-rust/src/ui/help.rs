@@ -34,6 +34,7 @@ pub fn render(frame: &mut Frame, _app: &App) {
         Line::from("P - Run predictions"),
         Line::from("Z - Quiz mode"),
         Line::from("? - Show this help"),
+        Line::from("Esc - Back to Home (or close active subview)"),
         Line::from("Q - Quit application (outside active quiz question flow)"),
         Line::from(""),
         Line::from(Span::styled(

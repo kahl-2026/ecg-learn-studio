@@ -278,6 +278,37 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
+        if key.code == KeyCode::Esc {
+            match self.current_screen {
+                Screen::Home => {}
+                Screen::Learn => {
+                    if self.learn_state.viewing_content {
+                        return learn::handle_input(self, key);
+                    }
+                    self.current_screen = Screen::Home;
+                    return Ok(());
+                }
+                Screen::Train => {
+                    if self.train_state.training {
+                        return train::handle_input(self, key);
+                    }
+                    self.current_screen = Screen::Home;
+                    return Ok(());
+                }
+                Screen::Quiz => {
+                    if self.quiz_state.mode != QuizMode::CategorySelect {
+                        return quiz::handle_input(self, KeyEvent::new(KeyCode::Char('q'), key.modifiers));
+                    }
+                    self.current_screen = Screen::Home;
+                    return Ok(());
+                }
+                Screen::Explorer | Screen::Predict | Screen::Help => {
+                    self.current_screen = Screen::Home;
+                    return Ok(());
+                }
+            }
+        }
+
         // Global hotkeys
         match key.code {
             KeyCode::Char('q') | KeyCode::Char('Q') => {
@@ -384,7 +415,7 @@ impl App {
 
 #[cfg(test)]
 mod tests {
-    use super::{App, QuizMode, QuizQuestion, Screen};
+    use super::{App, LessonContent, QuizMode, QuizQuestion, Screen};
     use crate::{backend::PythonBackend, config::Config};
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -448,5 +479,33 @@ mod tests {
         assert!(!app.can_quit());
         assert_eq!(app.quiz_state.mode, QuizMode::CategorySelect);
         assert!(app.quiz_state.current_question.is_none());
+    }
+
+    #[test]
+    fn esc_from_submenu_returns_home() {
+        let mut app = app_without_backend_process();
+        app.current_screen = Screen::Explorer;
+        app.handle_key(key(KeyCode::Esc))
+            .expect("ESC should navigate back to home");
+        assert_eq!(app.current_screen, Screen::Home);
+    }
+
+    #[test]
+    fn esc_in_lesson_content_returns_to_lesson_list() {
+        let mut app = app_without_backend_process();
+        app.current_screen = Screen::Learn;
+        app.learn_state.viewing_content = true;
+        app.learn_state.current_content = Some(LessonContent {
+            id: "ecg_basics".to_string(),
+            title: "Basics".to_string(),
+            content: "content".to_string(),
+            key_points: vec![],
+        });
+
+        app.handle_key(key(KeyCode::Esc))
+            .expect("ESC should close lesson content");
+        assert_eq!(app.current_screen, Screen::Learn);
+        assert!(!app.learn_state.viewing_content);
+        assert!(app.learn_state.current_content.is_none());
     }
 }
