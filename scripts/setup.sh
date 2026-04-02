@@ -163,10 +163,32 @@ install_python_deps() {
     # Upgrade pip
     python3 -m pip install --upgrade pip setuptools wheel
     
-    # Install Python dependencies from requirements.txt
+    # Check if dependencies are already installed
     if [ -f "ml-python/requirements.txt" ]; then
-        info "Installing Python packages from requirements.txt..."
-        python3 -m pip install -r ml-python/requirements.txt
+        info "Checking installed Python packages..."
+        MISSING_DEPS=0
+        
+        while IFS= read -r line; do
+            # Skip empty lines and comments
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+            
+            # Extract package name (before any version specifier)
+            PKG_NAME=$(echo "$line" | sed 's/[<>=!].*//' | xargs)
+            
+            if python3 -c "import $PKG_NAME" 2>/dev/null; then
+                info "  ✓ $PKG_NAME already installed"
+            else
+                info "  ✗ $PKG_NAME not found"
+                MISSING_DEPS=1
+            fi
+        done < ml-python/requirements.txt
+        
+        if [ $MISSING_DEPS -eq 0 ]; then
+            info "All Python dependencies already installed!"
+        else
+            info "Installing missing Python packages..."
+            python3 -m pip install -r ml-python/requirements.txt
+        fi
     else
         error "ml-python/requirements.txt not found!"
     fi

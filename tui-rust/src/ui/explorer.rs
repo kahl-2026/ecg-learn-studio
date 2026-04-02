@@ -1,9 +1,9 @@
 use crate::app::App;
 use anyhow::Result;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::{
     layout::Alignment,
-    text::{Line, Span},
+    text::Line,
     widgets::{Block, Borders, Paragraph},
     Frame,
 };

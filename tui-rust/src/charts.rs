@@ -1,10 +1,8 @@
 // Chart rendering utilities for ECG signals
 
 use ratatui::{
-    layout::Rect,
     style::{Color, Style},
     symbols,
-    text::Span,
     widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
 };
 
