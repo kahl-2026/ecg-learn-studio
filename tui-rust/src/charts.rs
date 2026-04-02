@@ -3,6 +3,7 @@
 use ratatui::{
     style::{Color, Style},
     symbols,
+    text::Span,
     widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
 };
 
