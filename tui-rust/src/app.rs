@@ -208,6 +208,10 @@ impl App {
     pub fn new() -> Result<Self> {
         let config = Config::load_or_default()?;
         let backend = PythonBackend::new(&config.python_path)?;
+        Ok(Self::from_parts(config, backend))
+    }
+
+    pub(crate) fn from_parts(config: Config, backend: PythonBackend) -> Self {
         let backend_status = if let Some(msg) = backend.startup_error() {
             BackendStatus {
                 connected: false,
@@ -241,7 +245,7 @@ impl App {
         let mut explorer_state = ExplorerState::default();
         explorer_state.zoom_level = 1.0;
 
-        Ok(Self {
+        Self {
             current_screen: Screen::Home,
             config,
             backend,
@@ -255,7 +259,7 @@ impl App {
             train_state,
             predict_state: PredictState::default(),
             quiz_state,
-        })
+        }
     }
 
     pub fn render(&mut self, frame: &mut Frame) {
@@ -356,5 +360,74 @@ impl App {
 
     pub fn can_quit(&self) -> bool {
         self.quit_requested
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{App, QuizMode, QuizQuestion, Screen};
+    use crate::{backend::PythonBackend, config::Config};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+    fn key(code: KeyCode) -> KeyEvent {
+        KeyEvent::new(code, KeyModifiers::NONE)
+    }
+
+    fn app_without_backend_process() -> App {
+        let backend = PythonBackend::new("definitely-missing-python-binary")
+            .expect("backend constructor should succeed even when process is unavailable");
+        App::from_parts(Config::default(), backend)
+    }
+
+    #[test]
+    fn global_hotkeys_switch_screens() {
+        let mut app = app_without_backend_process();
+        app.handle_key(key(KeyCode::Char('l'))).expect("L hotkey should work");
+        assert_eq!(app.current_screen, Screen::Learn);
+
+        app.handle_key(key(KeyCode::Char('e'))).expect("E hotkey should work");
+        assert_eq!(app.current_screen, Screen::Explorer);
+
+        app.handle_key(key(KeyCode::Char('t'))).expect("T hotkey should work");
+        assert_eq!(app.current_screen, Screen::Train);
+
+        app.handle_key(key(KeyCode::Char('p'))).expect("P hotkey should work");
+        assert_eq!(app.current_screen, Screen::Predict);
+
+        app.handle_key(key(KeyCode::Char('z'))).expect("Z hotkey should work");
+        assert_eq!(app.current_screen, Screen::Quiz);
+
+        app.handle_key(key(KeyCode::Char('?'))).expect("? hotkey should work");
+        assert_eq!(app.current_screen, Screen::Help);
+    }
+
+    #[test]
+    fn q_sets_quit_flag_outside_quiz_flow() {
+        let mut app = app_without_backend_process();
+        app.current_screen = Screen::Home;
+        app.handle_key(key(KeyCode::Char('q')))
+            .expect("Q hotkey should be handled");
+        assert!(app.can_quit());
+    }
+
+    #[test]
+    fn q_in_active_quiz_returns_to_category_without_quitting() {
+        let mut app = app_without_backend_process();
+        app.current_screen = Screen::Quiz;
+        app.quiz_state.mode = QuizMode::Answering;
+        app.quiz_state.current_question = Some(QuizQuestion {
+            id: "q1".to_string(),
+            question: "Test question?".to_string(),
+            options: vec!["A".to_string(), "B".to_string(), "C".to_string(), "D".to_string()],
+            category: "ECG Basics".to_string(),
+            difficulty: "easy".to_string(),
+        });
+
+        app.handle_key(key(KeyCode::Char('q')))
+            .expect("Q should be delegated to quiz handler");
+
+        assert!(!app.can_quit());
+        assert_eq!(app.quiz_state.mode, QuizMode::CategorySelect);
+        assert!(app.quiz_state.current_question.is_none());
     }
 }

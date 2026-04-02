@@ -176,3 +176,31 @@ pub fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     Rect::new(x, y, width.min(area.width), height.min(area.height))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::centered_rect;
+    use ratatui::layout::Rect;
+
+    #[test]
+    fn centered_rect_positions_area_in_center() {
+        let area = Rect::new(0, 0, 100, 40);
+        let centered = centered_rect(20, 10, area);
+
+        assert_eq!(centered.x, 40);
+        assert_eq!(centered.y, 15);
+        assert_eq!(centered.width, 20);
+        assert_eq!(centered.height, 10);
+    }
+
+    #[test]
+    fn centered_rect_clamps_to_parent_bounds() {
+        let area = Rect::new(5, 3, 20, 8);
+        let centered = centered_rect(50, 50, area);
+
+        assert_eq!(centered.x, 5);
+        assert_eq!(centered.y, 3);
+        assert_eq!(centered.width, 20);
+        assert_eq!(centered.height, 8);
+    }
+}
