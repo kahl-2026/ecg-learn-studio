@@ -21,6 +21,18 @@ class TestPythonBackendIntegration:
         result = handler.handle('ping', {})
         
         assert result['status'] == 'ok'
+
+    def test_api_package_lazy_server_export(self):
+        """Importing ecg_learn.api should not eagerly import server module."""
+        import importlib
+        import sys
+
+        sys.modules.pop('ecg_learn.api', None)
+        sys.modules.pop('ecg_learn.api.server', None)
+        api_module = importlib.import_module('ecg_learn.api')
+        assert 'ecg_learn.api.server' not in sys.modules
+        assert hasattr(api_module, 'ECGLearnAPIServer')
+        assert 'ecg_learn.api.server' in sys.modules
     
     def test_full_training_pipeline(self):
         """Test the complete training pipeline end-to-end."""
@@ -83,6 +95,18 @@ class TestPythonBackendIntegration:
         })
         
         assert 'explanation' in explain_result
+
+    def test_predict_requires_existing_model(self):
+        """Predict should not silently auto-train a model."""
+        from ecg_learn.api.handlers import RequestHandler
+        from ecg_learn.data import SyntheticECGGenerator
+
+        handler = RequestHandler()
+        gen = SyntheticECGGenerator(seed=42)
+        test_signal = gen.generate_normal_sinus().tolist()
+
+        with pytest.raises(ValueError, match="No trained model available"):
+            handler.handle('predict', {'signal': test_signal})
     
     def test_quiz_workflow(self):
         """Test complete quiz workflow."""

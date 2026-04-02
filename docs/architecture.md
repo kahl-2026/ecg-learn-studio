@@ -174,6 +174,8 @@ Rust: Display final results
 ```
 User selects ECG signal
     ↓
+User must have a trained model (Predict does not auto-train)
+    ↓
 Rust: Send predict request
     {"method": "predict", "params": {"model_id": "...", "data": [...]}}
     ↓

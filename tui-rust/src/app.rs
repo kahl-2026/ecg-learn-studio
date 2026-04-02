@@ -3,6 +3,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::Frame;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 use crate::backend::PythonBackend;
 use crate::config::Config;
@@ -189,6 +190,7 @@ pub struct App {
     pub backend: PythonBackend,
     pub backend_status: BackendStatus,
     pub quit_requested: bool,
+    last_backend_check: Option<Instant>,
     
     // Screen-specific state
     pub learn_state: LearnState,
@@ -251,6 +253,7 @@ impl App {
             backend,
             backend_status,
             quit_requested: false,
+            last_backend_check: None,
             learn_state: LearnState {
                 beginner_mode: true,
                 ..Default::default()
@@ -333,6 +336,22 @@ impl App {
     }
 
     pub fn update(&mut self) -> Result<()> {
+        if self.train_state.training
+            || self.explorer_state.loading
+            || self.predict_state.loading
+            || self.learn_state.loading
+            || self.quiz_state.loading
+        {
+            return Ok(());
+        }
+
+        if let Some(last_check) = self.last_backend_check {
+            if last_check.elapsed() < Duration::from_millis(750) {
+                return Ok(());
+            }
+        }
+        self.last_backend_check = Some(Instant::now());
+
         // Check backend status
         if let Ok(status) = self.backend.ping() {
             self.backend_status = BackendStatus {

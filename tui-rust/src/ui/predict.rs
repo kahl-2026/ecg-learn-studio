@@ -10,7 +10,7 @@ use ratatui::{
     Frame,
 };
 
-use super::{create_layout, render_header, render_footer};
+use super::{create_layout, render_error_popup, render_footer, render_header, render_loading};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PredictMode {
@@ -31,23 +31,20 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     // Show loading indicator
     if app.predict_state.loading {
-        let loading = Paragraph::new("Running prediction...")
-            .style(Style::default().fg(Color::Yellow))
-            .block(Block::default().borders(Borders::ALL).title("Predict"))
-            .alignment(Alignment::Center);
-        frame.render_widget(loading, content_area);
+        render_loading(frame, content_area, "Running prediction");
         render_footer(frame, footer_area, vec![("ESC", "Cancel")]);
         return;
     }
 
     // Show error if any
     if let Some(ref error) = app.predict_state.error {
-        let error_msg = Paragraph::new(format!("Error: {}", error))
-            .style(Style::default().fg(Color::Red))
-            .block(Block::default().borders(Borders::ALL).title("Error"))
-            .alignment(Alignment::Center);
-        frame.render_widget(error_msg, content_area);
-        render_footer(frame, footer_area, vec![("R", "Retry"), ("ESC", "Back")]);
+        if app.predict_state.model_loaded {
+            render_signal_select(frame, app, content_area);
+        } else {
+            render_model_select(frame, app, content_area);
+        }
+        render_error_popup(frame, error);
+        render_footer(frame, footer_area, vec![("R", "Clear"), ("ESC", "Back")]);
         return;
     }
 
@@ -335,6 +332,7 @@ fn handle_model_select(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Enter => {
             // Load model (just mark as loaded for now)
+            app.predict_state.error = None;
             app.predict_state.model_loaded = true;
             if app.predict_state.available_models.is_empty() {
                 app.predict_state.available_models = vec![
@@ -354,6 +352,7 @@ fn handle_signal_select(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Enter => {
             if !app.predict_state.signal_loaded {
                 // Generate sample signal
+                app.predict_state.error = None;
                 app.predict_state.signal_data = Some(generate_sample_signal());
                 app.predict_state.signal_loaded = true;
             } else {
@@ -362,9 +361,13 @@ fn handle_signal_select(app: &mut App, key: KeyEvent) -> Result<()> {
             }
         }
         KeyCode::Char('m') | KeyCode::Char('M') => {
+            app.predict_state.error = None;
             app.predict_state.model_loaded = false;
             app.predict_state.signal_loaded = false;
             app.predict_state.signal_data = None;
+        }
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            app.predict_state.error = None;
         }
         _ => {}
     }
@@ -379,6 +382,7 @@ fn handle_result(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('n') | KeyCode::Char('N') => {
             // New prediction
+            app.predict_state.error = None;
             app.predict_state.prediction = None;
             app.predict_state.explanation = None;
             app.predict_state.signal_loaded = false;
@@ -445,9 +449,21 @@ fn run_prediction(app: &mut App) -> Result<()> {
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string());
                 
-                let top_predictions: Vec<(String, f64)> = result.get("top_predictions")
-                    .and_then(|v| serde_json::from_value(v.clone()).ok())
-                    .unwrap_or_default();
+                let top_predictions: Vec<(String, f64)> = if let Some(tp) = result.get("top_predictions") {
+                    if let Ok(pairs) = serde_json::from_value::<Vec<(String, f64)>>(tp.clone()) {
+                        pairs
+                    } else if let Ok(items) = serde_json::from_value::<Vec<serde_json::Value>>(tp.clone()) {
+                        items.into_iter().filter_map(|item| {
+                            let class = item.get("class").and_then(|v| v.as_str())?;
+                            let prob = item.get("probability").and_then(|v| v.as_f64())?;
+                            Some((class.to_string(), prob))
+                        }).collect()
+                    } else {
+                        Vec::new()
+                    }
+                } else {
+                    Vec::new()
+                };
 
                 app.predict_state.prediction = Some(PredictionResult {
                     predicted_class,
@@ -466,22 +482,12 @@ fn run_prediction(app: &mut App) -> Result<()> {
                 );
             }
         }
-        Err(_) => {
+        Err(e) => {
             app.predict_state.loading = false;
-            // Generate demo prediction
-            app.predict_state.prediction = Some(PredictionResult {
-                predicted_class: "Normal".to_string(),
-                confidence: 0.87,
-                top_predictions: vec![
-                    ("Normal".to_string(), 0.87),
-                    ("Bradycardia".to_string(), 0.06),
-                    ("Tachycardia".to_string(), 0.04),
-                    ("AFib".to_string(), 0.02),
-                    ("PVC".to_string(), 0.01),
-                ],
-                is_uncertain: false,
-                uncertainty_message: None,
-            });
+            app.predict_state.error = Some(format!(
+                "Prediction unavailable: {}. Train a model first in Train screen, then retry.",
+                e
+            ));
         }
     }
     

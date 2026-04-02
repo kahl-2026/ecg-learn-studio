@@ -306,7 +306,7 @@ fn load_dataset(app: &mut App) -> Result<()> {
 
     match app.backend.request("load_data", serde_json::json!({
         "dataset_type": dataset_type,
-        "count": 100
+        "count": 40
     })) {
         Ok(response) => {
             app.explorer_state.loading = false;

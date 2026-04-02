@@ -346,7 +346,8 @@ fn start_training(app: &mut App) -> Result<()> {
         "dataset_type": dataset_type,
         "epochs": app.train_state.epochs,
         "learning_rate": app.train_state.learning_rate,
-        "train_split": app.train_state.train_split
+        "train_split": app.train_state.train_split,
+        "samples_per_class": 40
     })) {
         Ok(response) => {
             app.train_state.training = false;

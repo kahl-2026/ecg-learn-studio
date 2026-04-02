@@ -96,4 +96,4 @@ dev-setup: install
 # Create sample data
 sample-data:
 	@echo "Generating sample synthetic data..."
-	cd ml-python && python3 -m ecg_learn.data.synthetic --output ../datasets/synthetic/ --count 100
+	cd ml-python && PYTHONPATH=src python3 -m ecg_learn.data.synthetic --output ../datasets/synthetic/ --count 100

@@ -86,13 +86,16 @@ make run
 
 `./scripts/setup.sh` now checks requirement compatibility first and only installs missing/incompatible packages, avoiding repeated reinstalls.
 
+`make sample-data` now runs with `PYTHONPATH=src` under `ml-python/`, so synthetic data generation works in clean environments without requiring a prior editable install.
+
 ### First Steps
 
 1. **Press `L`** to start learning ECG basics
 2. **Press `E`** to explore sample ECG signals
 3. **Press `T`** to train your first model
-4. **Press `Z`** to test your knowledge with Quiz mode
-5. **Press `?`** for help anytime
+4. **Press `P`** only after training at least one model in Train
+5. **Press `Z`** to test your knowledge with Quiz mode
+6. **Press `?`** for help anytime
 
 ## Downloading Real Datasets
 

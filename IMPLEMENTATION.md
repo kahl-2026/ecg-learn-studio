@@ -258,7 +258,7 @@ cargo build --release
 cd ..
 
 # Test Python backend standalone
-python3 -m ecg_learn.api.server  # Ctrl+C to exit
+PYTHONPATH=ml-python/src python3 -m ecg_learn.api.server  # Ctrl+C to exit
 
 # Run full application
 make run
@@ -401,7 +401,7 @@ cd docs                       # Documentation
 ```bash
 make build                    # Build everything
 make run                      # Run application
-python3 -m ecg_learn.data.synthetic --count 100  # Generate data
+cd ml-python && PYTHONPATH=src python3 -m ecg_learn.data.synthetic --count 100  # Generate data
 cargo run --release           # Run Rust TUI
 ```
 

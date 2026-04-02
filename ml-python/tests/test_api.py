@@ -154,6 +154,12 @@ class TestRequestHandler:
         
         assert 'available_models' in result
         assert len(result['available_models']) > 0
+
+    def test_predict_without_trained_model_raises(self, handler):
+        """Predict should fail fast when no model has been trained."""
+        signal = np.sin(np.linspace(0, 10 * np.pi, 360)).tolist()
+        with pytest.raises(ValueError, match="No trained model available"):
+            handler.handle('predict', {'signal': signal})
     
     def test_unknown_method(self, handler):
         """Test that unknown methods raise an error."""

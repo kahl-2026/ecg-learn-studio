@@ -78,7 +78,7 @@ class RequestHandler:
         if dataset_type == 'synthetic':
             generator = SyntheticECGGenerator()
             signals, labels, label_names = generator.generate_dataset(
-                n_samples_per_class=max(count // 5, 10)
+                n_samples_per_class=max(count // 5, 5)
             )
             
             dataset_id = f"synthetic_{len(self.datasets)}"
@@ -221,11 +221,14 @@ class RequestHandler:
         epochs = params.get('epochs', 10)
         learning_rate = params.get('learning_rate', 0.001)
         train_split = params.get('train_split', 0.8)
+        samples_per_class = int(params.get('samples_per_class', 40))
         
         # Load or generate data if needed
         if dataset_type == 'synthetic':
             generator = SyntheticECGGenerator()
-            signals, labels, label_names = generator.generate_dataset(n_samples_per_class=100)
+            signals, labels, label_names = generator.generate_dataset(
+                n_samples_per_class=max(samples_per_class, 10)
+            )
         else:
             # Use first matching dataset or load fresh
             dataset_id = None
@@ -246,7 +249,9 @@ class RequestHandler:
                 if len(signals) == 0:
                     # Fallback to synthetic
                     generator = SyntheticECGGenerator()
-                    signals, labels, label_names = generator.generate_dataset(n_samples_per_class=100)
+                    signals, labels, label_names = generator.generate_dataset(
+                        n_samples_per_class=max(samples_per_class, 10)
+                    )
         
         X = np.array(signals)
         y = np.array(labels)
@@ -350,14 +355,20 @@ class RequestHandler:
         model_id = params.get('model_id')
         signal = params.get('signal', params.get('data', []))
         
-        # Use latest model if not specified or not found
-        if not model_id or model_id not in self.models:
+        # Use latest model when not specified, but do not auto-train on predict.
+        if not model_id:
             if self.models:
                 model_id = list(self.models.keys())[-1]
             else:
-                # Create a quick model for demo
-                self.train_model({'model_type': 'logistic', 'dataset_type': 'synthetic'})
-                model_id = list(self.models.keys())[-1]
+                raise ValueError(
+                    "No trained model available. Train a model first in the Train screen."
+                )
+        elif model_id not in self.models:
+            available = ", ".join(self.models.keys()) if self.models else "none"
+            raise ValueError(
+                f"Model '{model_id}' is not available. Available models: {available}. "
+                "Train a model first in the Train screen."
+            )
         
         model_info = self.models[model_id]
         model = model_info['model']
