@@ -401,7 +401,7 @@ fn load_question(app: &mut App) -> Result<()> {
             }
         }
         Err(e) => {
-            app.quiz_state.error = Some(format!("Backend unavailable, using demo questions: {}", e));
+            app.quiz_state.error = Some(format!("Using demo questions (backend request failed: {})", e));
         }
     }
 
@@ -450,7 +450,7 @@ fn submit_answer(app: &mut App, answer_idx: usize) -> Result<()> {
                 }
             }
             Err(e) => {
-                app.quiz_state.error = Some(format!("Backend submit failed, using demo grading: {}", e));
+                app.quiz_state.error = Some(format!("Using demo grading (backend request failed: {})", e));
             }
         }
 

@@ -34,7 +34,7 @@ pub fn render(frame: &mut Frame, app: &App) {
         render_footer(
             frame,
             footer_area,
-            vec![("S", "Save Model"), ("N", "New Training"), ("ESC", "Back")],
+            vec![("N", "New Training"), ("ESC", "Back")],
         );
         return;
     }

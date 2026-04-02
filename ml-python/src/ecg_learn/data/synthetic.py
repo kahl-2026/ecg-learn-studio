@@ -10,15 +10,17 @@ ArrhythmiaType = Literal['normal', 'afib', 'bradycardia', 'tachycardia', 'pvc']
 class SyntheticECGGenerator:
     """Generate synthetic ECG signals with controllable arrhythmia characteristics."""
     
-    def __init__(self, sampling_rate: int = 360, seed: int = 42):
+    def __init__(self, sampling_rate: int = 360, signal_length: int | None = None, seed: int = 42):
         """
         Initialize synthetic ECG generator.
         
         Args:
             sampling_rate: Samples per second (default 360 Hz, MIT-BIH standard)
+            signal_length: Optional fixed signal length in samples for compatibility
             seed: Random seed for reproducibility
         """
         self.sampling_rate = sampling_rate
+        self.signal_length = signal_length if signal_length is not None else int(10.0 * sampling_rate)
         self.rng = np.random.RandomState(seed)
         
     def generate(
@@ -262,6 +264,32 @@ class SyntheticECGGenerator:
                 idx += 1
         
         return signals, labels, classes
+
+    # Compatibility helpers expected by tests/integration
+    def generate_normal_sinus(self) -> np.ndarray:
+        duration = self.signal_length / self.sampling_rate
+        signal, _ = self.generate('normal', duration=duration)
+        return signal
+
+    def generate_atrial_fibrillation(self) -> np.ndarray:
+        duration = self.signal_length / self.sampling_rate
+        signal, _ = self.generate('afib', duration=duration)
+        return signal
+
+    def generate_bradycardia(self) -> np.ndarray:
+        duration = self.signal_length / self.sampling_rate
+        signal, _ = self.generate('bradycardia', duration=duration)
+        return signal
+
+    def generate_tachycardia(self) -> np.ndarray:
+        duration = self.signal_length / self.sampling_rate
+        signal, _ = self.generate('tachycardia', duration=duration)
+        return signal
+
+    def generate_pvc(self) -> np.ndarray:
+        duration = self.signal_length / self.sampling_rate
+        signal, _ = self.generate('pvc', duration=duration)
+        return signal
 
 
 if __name__ == '__main__':

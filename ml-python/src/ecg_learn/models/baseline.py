@@ -28,7 +28,6 @@ class BaselineModels:
             self.model = LogisticRegression(
                 max_iter=1000,
                 random_state=random_state,
-                multi_class='multinomial',
                 solver='lbfgs'
             )
         elif model_type == 'random_forest':

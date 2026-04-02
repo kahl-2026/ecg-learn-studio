@@ -34,7 +34,7 @@ pub fn render(frame: &mut Frame, _app: &App) {
         Line::from("P - Run predictions"),
         Line::from("Z - Quiz mode"),
         Line::from("? - Show this help"),
-        Line::from("Q - Quit application"),
+        Line::from("Q - Quit application (outside active quiz question flow)"),
         Line::from(""),
         Line::from(Span::styled(
             "Features",
@@ -58,7 +58,7 @@ pub fn render(frame: &mut Frame, _app: &App) {
     render_footer(
         frame,
         footer_area,
-        vec![("Esc", "Back to Home")],
+        vec![("H", "Home"), ("Esc", "Back")],
     );
 }
 

@@ -58,7 +58,7 @@ pub fn render(frame: &mut Frame, app: &App) {
                 ("↑/↓", "Navigate"),
                 ("Enter", "Open"),
                 ("B", if app.learn_state.beginner_mode { "Advanced" } else { "Beginner" }),
-                ("G", "Glossary"),
+                ("1-7", "Jump"),
             ],
         );
     }

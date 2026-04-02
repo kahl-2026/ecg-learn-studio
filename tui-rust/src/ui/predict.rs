@@ -178,11 +178,9 @@ fn render_signal_select(frame: &mut Frame, app: &App, area: Rect) {
         let placeholder = Paragraph::new(vec![
             Line::from(Span::styled("Signal Input", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
             Line::from(""),
-            Line::from("Press Enter to load a signal from:"),
-            Line::from("• Synthetic data generator"),
-            Line::from("• Previously loaded Explorer data"),
+            Line::from("Press Enter to generate a synthetic sample signal."),
             Line::from(""),
-            Line::from(Span::styled("Press Enter to generate sample signal", Style::default().fg(Color::Green))),
+            Line::from(Span::styled("Explorer data import is not yet wired in this screen.", Style::default().fg(Color::Yellow))),
         ])
         .block(Block::default().borders(Borders::ALL).title("Signal Preview"))
         .alignment(Alignment::Left);
@@ -416,6 +414,7 @@ fn generate_sample_signal() -> Vec<f64> {
 
 fn run_prediction(app: &mut App) -> Result<()> {
     app.predict_state.loading = true;
+    app.predict_state.error = None;
     
     let model_name = app.predict_state.available_models
         .get(app.predict_state.selected_model_index)
@@ -457,6 +456,14 @@ fn run_prediction(app: &mut App) -> Result<()> {
                     is_uncertain,
                     uncertainty_message,
                 });
+            } else if let Some(error) = response.get("error") {
+                app.predict_state.error = Some(
+                    error
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("Prediction request failed")
+                        .to_string(),
+                );
             }
         }
         Err(_) => {
@@ -483,8 +490,14 @@ fn run_prediction(app: &mut App) -> Result<()> {
 
 fn get_explanation(app: &mut App) -> Result<()> {
     if let Some(ref prediction) = app.predict_state.prediction {
+        let selected_model = app
+            .predict_state
+            .available_models
+            .get(app.predict_state.selected_model_index)
+            .cloned()
+            .unwrap_or_else(|| "logistic_model_latest".to_string());
         match app.backend.request("explain", serde_json::json!({
-            "model_id": app.predict_state.available_models.get(app.predict_state.selected_model_index),
+            "model_id": selected_model,
             "predicted_class": prediction.predicted_class
         })) {
             Ok(response) => {

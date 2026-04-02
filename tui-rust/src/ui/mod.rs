@@ -94,7 +94,7 @@ pub fn render_error_popup(frame: &mut Frame, error_message: &str) {
         )),
         Line::from(""),
         Line::from(Span::styled(
-            "Press any key to dismiss",
+            "Press R to clear and continue",
             Style::default().fg(Color::Gray),
         )),
     ])
@@ -149,10 +149,8 @@ pub fn render_progress(frame: &mut Frame, area: Rect, label: &str, progress: f64
 /// Render a status message in the footer area
 pub fn render_status(frame: &mut Frame, area: Rect, status: &str, status_type: StatusType) {
     let color = match status_type {
-        StatusType::Info => Color::Cyan,
         StatusType::Success => Color::Green,
         StatusType::Warning => Color::Yellow,
-        StatusType::Error => Color::Red,
     };
     
     let status_line = Line::from(Span::styled(
@@ -168,10 +166,8 @@ pub fn render_status(frame: &mut Frame, area: Rect, status: &str, status_type: S
 
 #[derive(Debug, Clone, Copy)]
 pub enum StatusType {
-    Info,
     Success,
     Warning,
-    Error,
 }
 
 /// Center a rectangle within another rectangle

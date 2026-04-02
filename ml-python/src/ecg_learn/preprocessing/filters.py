@@ -65,6 +65,8 @@ class ECGFilters:
         
         b, a = signal.butter(4, normalized_cutoff, btype='high')
         filtered = signal.filtfilt(b, a, ecg_signal)
+        # Remove residual DC offset introduced by filtering edges.
+        filtered = filtered - np.mean(filtered)
         
         return filtered
     
@@ -111,13 +113,14 @@ class ECGFilters:
         if method == 'zscore':
             mean = np.mean(ecg_signal)
             std = np.std(ecg_signal)
-            normalized = (ecg_signal - mean) / (std + 1e-8)
+            normalized = (ecg_signal - mean) / std if std > 0 else np.zeros_like(ecg_signal)
             params = {'method': 'zscore', 'mean': float(mean), 'std': float(std)}
         
         elif method == 'minmax':
             min_val = np.min(ecg_signal)
             max_val = np.max(ecg_signal)
-            normalized = (ecg_signal - min_val) / (max_val - min_val + 1e-8)
+            span = max_val - min_val
+            normalized = (ecg_signal - min_val) / span if span > 0 else np.zeros_like(ecg_signal)
             params = {'method': 'minmax', 'min': float(min_val), 'max': float(max_val)}
         
         elif method == 'robust':
@@ -125,7 +128,7 @@ class ECGFilters:
             median = np.median(ecg_signal)
             q25, q75 = np.percentile(ecg_signal, [25, 75])
             iqr = q75 - q25
-            normalized = (ecg_signal - median) / (iqr + 1e-8)
+            normalized = (ecg_signal - median) / iqr if iqr > 0 else np.zeros_like(ecg_signal)
             params = {'method': 'robust', 'median': float(median), 'iqr': float(iqr)}
         
         else:

@@ -56,7 +56,8 @@ class ECGSegmentation:
     def segment_beats(
         self,
         ecg_signal: np.ndarray,
-        r_peaks: np.ndarray,
+        r_peaks: np.ndarray | None = None,
+        beat_length: int | None = None,
         before: float = 0.2,
         after: float = 0.4
     ) -> List[np.ndarray]:
@@ -65,15 +66,23 @@ class ECGSegmentation:
         
         Args:
             ecg_signal: ECG signal
-            r_peaks: R-peak indices
+            r_peaks: Optional R-peak indices (auto-detected when omitted)
+            beat_length: Optional fixed beat window length in samples (compatibility mode)
             before: Time before R-peak to include (seconds)
             after: Time after R-peak to include (seconds)
             
         Returns:
             List of beat segments
         """
-        before_samples = int(before * self.sampling_rate)
-        after_samples = int(after * self.sampling_rate)
+        if r_peaks is None:
+            r_peaks = self.detect_r_peaks(ecg_signal)
+
+        if beat_length is not None:
+            before_samples = beat_length // 2
+            after_samples = beat_length - before_samples
+        else:
+            before_samples = int(before * self.sampling_rate)
+            after_samples = int(after * self.sampling_rate)
         
         beats = []
         for r_peak in r_peaks:
@@ -208,7 +217,14 @@ class ECGSegmentation:
                 r_peaks = self.detect_r_peaks(signal_data)
                 before = kwargs.get('before', 0.2)
                 after = kwargs.get('after', 0.4)
-                beats = self.segment_beats(signal_data, r_peaks, before, after)
+                beat_length = kwargs.get('beat_length')
+                beats = self.segment_beats(
+                    signal_data,
+                    r_peaks=r_peaks,
+                    beat_length=beat_length,
+                    before=before,
+                    after=after,
+                )
                 
                 for beat in beats:
                     all_segments.append(beat)
