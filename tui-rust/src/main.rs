@@ -56,7 +56,12 @@ fn run_app<B: ratatui::backend::Backend>(
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key) = event::read()? {
                 match key.code {
-                    KeyCode::Char('q') if app.can_quit() => return Ok(()),
+                    KeyCode::Char('q') | KeyCode::Char('Q') => {
+                        app.handle_key(key)?;
+                        if app.can_quit() {
+                            return Ok(());
+                        }
+                    }
                     _ => app.handle_key(key)?,
                 }
             }

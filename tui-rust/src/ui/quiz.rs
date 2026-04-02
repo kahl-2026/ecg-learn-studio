@@ -9,7 +9,7 @@ use ratatui::{
     Frame,
 };
 
-use super::{create_layout, render_header, render_footer};
+use super::{create_layout, render_error_popup, render_footer, render_header, render_loading};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let (header_area, content_area, footer_area) = create_layout(frame);
@@ -23,12 +23,15 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     // Show loading indicator
     if app.quiz_state.loading {
-        let loading = Paragraph::new("Loading questions...")
-            .style(Style::default().fg(Color::Yellow))
-            .block(Block::default().borders(Borders::ALL).title("Quiz"))
-            .alignment(Alignment::Center);
-        frame.render_widget(loading, content_area);
+        render_loading(frame, content_area, "Loading questions");
         render_footer(frame, footer_area, vec![("ESC", "Back")]);
+        return;
+    }
+
+    if let Some(ref error) = app.quiz_state.error {
+        render_category_select(frame, app, content_area);
+        render_error_popup(frame, error);
+        render_footer(frame, footer_area, vec![("R", "Retry"), ("ESC", "Back")]);
         return;
     }
 
@@ -298,7 +301,11 @@ fn handle_category_select(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Enter => {
             // Start quiz for selected category
+            app.quiz_state.error = None;
             load_question(app)?;
+        }
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            app.quiz_state.error = None;
         }
         _ => {}
     }
@@ -393,7 +400,9 @@ fn load_question(app: &mut App) -> Result<()> {
                 }
             }
         }
-        Err(_) => {}
+        Err(e) => {
+            app.quiz_state.error = Some(format!("Backend unavailable, using demo questions: {}", e));
+        }
     }
 
     // Fallback to demo questions
@@ -440,7 +449,9 @@ fn submit_answer(app: &mut App, answer_idx: usize) -> Result<()> {
                     return Ok(());
                 }
             }
-            Err(_) => {}
+            Err(e) => {
+                app.quiz_state.error = Some(format!("Backend submit failed, using demo grading: {}", e));
+            }
         }
 
         // Fallback demo answer checking

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::backend::PythonBackend;
 use crate::config::Config;
-use crate::ui::{home, learn, explorer, train, predict, quiz, help};
+use crate::ui::{explorer, help, home, learn, predict, quiz, train};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Screen {
@@ -207,7 +207,18 @@ pub struct BackendStatus {
 impl App {
     pub fn new() -> Result<Self> {
         let config = Config::load_or_default()?;
-        let backend = PythonBackend::new()?;
+        let backend = PythonBackend::new(&config.python_path)?;
+        let backend_status = if let Some(msg) = backend.startup_error() {
+            BackendStatus {
+                connected: false,
+                message: msg.to_string(),
+            }
+        } else {
+            BackendStatus {
+                connected: true,
+                message: "Backend process started".to_string(),
+            }
+        };
 
         // Initialize quiz categories
         let mut quiz_state = QuizState::default();
@@ -234,10 +245,7 @@ impl App {
             current_screen: Screen::Home,
             config,
             backend,
-            backend_status: BackendStatus {
-                connected: false,
-                message: "Connecting...".to_string(),
-            },
+            backend_status,
             quit_requested: false,
             learn_state: LearnState {
                 beginner_mode: true,
@@ -265,6 +273,18 @@ impl App {
     pub fn handle_key(&mut self, key: KeyEvent) -> Result<()> {
         // Global hotkeys
         match key.code {
+            KeyCode::Char('q') | KeyCode::Char('Q') => {
+                if self.current_screen == Screen::Quiz {
+                    if self.quiz_state.mode == QuizMode::CategorySelect {
+                        self.quit_requested = true;
+                    } else {
+                        return quiz::handle_input(self, key);
+                    }
+                } else {
+                    self.quit_requested = true;
+                }
+                return Ok(());
+            }
             KeyCode::Char('h') | KeyCode::Char('H') => {
                 self.current_screen = Screen::Home;
                 return Ok(());
@@ -315,13 +335,26 @@ impl App {
                 connected: true,
                 message: format!("Connected - Backend v{}", status.backend_version),
             };
+        } else if !self.backend.has_process() {
+            self.backend_status = BackendStatus {
+                connected: false,
+                message: self
+                    .backend
+                    .startup_error()
+                    .unwrap_or("Backend unavailable")
+                    .to_string(),
+            };
+        } else {
+            self.backend_status = BackendStatus {
+                connected: false,
+                message: "Backend ping failed".to_string(),
+            };
         }
 
         Ok(())
     }
 
     pub fn can_quit(&self) -> bool {
-        // Can add confirmation logic here
-        true
+        self.quit_requested
     }
 }

@@ -9,7 +9,7 @@ use ratatui::{
     Frame,
 };
 
-use super::{create_layout, render_header, render_footer};
+use super::{create_layout, render_error_popup, render_footer, render_header, render_loading};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let (header_area, content_area, footer_area) = create_layout(frame);
@@ -23,22 +23,15 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     // Show loading indicator
     if app.learn_state.loading {
-        let loading = Paragraph::new("Loading lessons...")
-            .style(Style::default().fg(Color::Yellow))
-            .block(Block::default().borders(Borders::ALL).title("Lessons"))
-            .alignment(Alignment::Center);
-        frame.render_widget(loading, content_area);
+        render_loading(frame, content_area, "Loading lessons");
         render_footer(frame, footer_area, vec![("ESC", "Back")]);
         return;
     }
 
     // Show error if any
     if let Some(ref error) = app.learn_state.error {
-        let error_msg = Paragraph::new(format!("Error: {}", error))
-            .style(Style::default().fg(Color::Red))
-            .block(Block::default().borders(Borders::ALL).title("Error"))
-            .alignment(Alignment::Center);
-        frame.render_widget(error_msg, content_area);
+        render_lesson_list(frame, app, content_area);
+        render_error_popup(frame, error);
         render_footer(frame, footer_area, vec![("R", "Retry"), ("ESC", "Back")]);
         return;
     }

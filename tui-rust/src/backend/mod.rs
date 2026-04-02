@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,32 +40,71 @@ pub struct PythonBackend {
     stdin: Option<ChildStdin>,
     stdout_reader: Option<BufReader<ChildStdout>>,
     request_counter: u64,
+    startup_error: Option<String>,
 }
 
 impl PythonBackend {
-    pub fn new() -> Result<Self> {
-        let mut process = Command::new("python3")
-            .arg("-m")
-            .arg("ecg_learn.api.server")
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::inherit())
-            .current_dir("ml-python/src")
-            .spawn()
-            .context("Failed to start Python backend")?;
+    pub fn new(python_path: &str) -> Result<Self> {
+        let backend_dir = find_backend_dir();
+        let mut startup_error = None;
+        let mut process = None;
+        let mut stdin = None;
+        let mut stdout_reader = None;
 
-        let stdin = process.stdin.take();
-        let stdout = process.stdout.take().map(BufReader::new);
+        if let Some(dir) = backend_dir {
+            match Command::new(python_path)
+                .arg("-m")
+                .arg("ecg_learn.api.server")
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::inherit())
+                .current_dir(&dir)
+                .spawn()
+            {
+                Ok(mut child) => {
+                    stdin = child.stdin.take();
+                    stdout_reader = child.stdout.take().map(BufReader::new);
+                    process = Some(child);
+                }
+                Err(err) => {
+                    startup_error = Some(format!(
+                        "Failed to start backend with '{}': {}",
+                        python_path, err
+                    ));
+                }
+            }
+        } else {
+            startup_error = Some(
+                "Could not locate ml-python/src; backend unavailable".to_string(),
+            );
+        }
 
         Ok(Self {
-            process: Some(process),
+            process,
             stdin,
-            stdout_reader: stdout,
+            stdout_reader,
             request_counter: 0,
+            startup_error,
         })
     }
 
+    pub fn startup_error(&self) -> Option<&str> {
+        self.startup_error.as_deref()
+    }
+
+    pub fn has_process(&self) -> bool {
+        self.process.is_some()
+    }
+
     pub fn send_request(&mut self, method: &str, params: serde_json::Value) -> Result<Response> {
+        if self.process.is_none() {
+            let reason = self
+                .startup_error
+                .as_deref()
+                .unwrap_or("backend process is not running");
+            anyhow::bail!("Python backend unavailable: {}", reason);
+        }
+
         self.request_counter += 1;
         let request = Request {
             id: format!("req_{}", self.request_counter),
@@ -85,7 +125,10 @@ impl PythonBackend {
         // Read response
         if let Some(ref mut stdout) = self.stdout_reader {
             let mut line = String::new();
-            stdout.read_line(&mut line)?;
+            stdout.read_line(&mut line).context("Failed to read backend response")?;
+            if line.trim().is_empty() {
+                anyhow::bail!("Backend returned an empty response");
+            }
             let response: Response = serde_json::from_str(&line.trim())?;
             Ok(response)
         } else {
@@ -132,125 +175,34 @@ impl Drop for PythonBackend {
     }
 }
 
-pub mod protocol {
-    use super::*;
+fn is_backend_src_dir(path: &Path) -> bool {
+    path.join("ecg_learn")
+        .join("api")
+        .join("server.py")
+        .exists()
+}
 
-    /// Load ECG data from a dataset
-    pub fn load_data(backend: &mut PythonBackend, dataset_type: &str, count: usize) -> Result<serde_json::Value> {
-        let response = backend.send_request("load_data", json!({
-            "dataset_type": dataset_type,
-            "count": count
-        }))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Load data failed: {:?}", response.error);
+fn find_backend_dir() -> Option<PathBuf> {
+    let relative_candidates = [
+        PathBuf::from("ml-python/src"),
+        PathBuf::from("../ml-python/src"),
+        PathBuf::from("../../ml-python/src"),
+    ];
+
+    for candidate in relative_candidates {
+        if is_backend_src_dir(&candidate) {
+            return Some(candidate);
         }
     }
 
-    /// Train a model with specified parameters
-    pub fn train_model(
-        backend: &mut PythonBackend,
-        model_type: &str,
-        dataset_type: &str,
-        epochs: u32,
-        learning_rate: f64,
-        train_split: f64
-    ) -> Result<serde_json::Value> {
-        let response = backend.send_request("train_model", json!({
-            "model_type": model_type,
-            "dataset_type": dataset_type,
-            "epochs": epochs,
-            "learning_rate": learning_rate,
-            "train_split": train_split
-        }))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Train model failed: {:?}", response.error);
+    if let Ok(exe_path) = std::env::current_exe() {
+        for ancestor in exe_path.ancestors().take(8) {
+            let candidate = ancestor.join("ml-python/src");
+            if is_backend_src_dir(&candidate) {
+                return Some(candidate);
+            }
         }
     }
 
-    /// Get list of available lessons
-    pub fn get_lessons(backend: &mut PythonBackend) -> Result<serde_json::Value> {
-        let response = backend.send_request("get_lessons", json!({}))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Get lessons failed: {:?}", response.error);
-        }
-    }
-
-    /// Get detailed content for a specific lesson
-    pub fn get_lesson_content(backend: &mut PythonBackend, lesson_id: &str, difficulty: &str) -> Result<serde_json::Value> {
-        let response = backend.send_request("get_lesson_content", json!({
-            "lesson_id": lesson_id,
-            "difficulty": difficulty
-        }))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Get lesson content failed: {:?}", response.error);
-        }
-    }
-
-    /// Run prediction on a signal
-    pub fn predict(backend: &mut PythonBackend, model_id: &str, signal: &[f64]) -> Result<serde_json::Value> {
-        let response = backend.send_request("predict", json!({
-            "model_id": model_id,
-            "signal": signal
-        }))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Prediction failed: {:?}", response.error);
-        }
-    }
-
-    /// Get explanation for a prediction
-    pub fn explain(backend: &mut PythonBackend, model_id: &str, predicted_class: &str) -> Result<serde_json::Value> {
-        let response = backend.send_request("explain", json!({
-            "model_id": model_id,
-            "predicted_class": predicted_class
-        }))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Explanation failed: {:?}", response.error);
-        }
-    }
-
-    /// Get quiz questions for a category
-    pub fn get_quiz_questions(backend: &mut PythonBackend, category: &str, count: usize) -> Result<serde_json::Value> {
-        let response = backend.send_request("get_quiz_questions", json!({
-            "category": category,
-            "count": count
-        }))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Get quiz questions failed: {:?}", response.error);
-        }
-    }
-
-    /// Submit a quiz answer and get feedback
-    pub fn submit_quiz_answer(backend: &mut PythonBackend, question_id: &str, answer: &str) -> Result<serde_json::Value> {
-        let response = backend.send_request("submit_quiz_answer", json!({
-            "question_id": question_id,
-            "answer": answer
-        }))?;
-        
-        if response.success {
-            response.result.context("No result in response")
-        } else {
-            anyhow::bail!("Submit answer failed: {:?}", response.error);
-        }
-    }
+    None
 }

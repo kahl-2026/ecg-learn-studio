@@ -9,6 +9,7 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+RUST_BIN_PATH=""
 
 info() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -21,6 +22,31 @@ warn() {
 error() {
     echo -e "${RED}[ERROR]${NC} $1"
     exit 1
+}
+
+detect_rust_binary_path() {
+    local candidates=(
+        "tui-rust/target/release/ecg-learn-tui"
+        "tui-rust/target/release/tui-rust"
+    )
+
+    local candidate
+    for candidate in "${candidates[@]}"; do
+        if [ -f "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    done
+
+    if [ -d "tui-rust/target/release" ]; then
+        candidate=$(find tui-rust/target/release -maxdepth 1 -type f -perm -111 ! -name "*.d" ! -name "build-script-*" | head -n 1)
+        if [ -n "$candidate" ]; then
+            echo "$candidate"
+            return 0
+        fi
+    fi
+
+    return 1
 }
 
 # Detect OS
@@ -160,25 +186,27 @@ install_python_deps() {
         info "Python version: $PYTHON_VERSION"
     fi
     
-    # Upgrade pip
-    python3 -m pip install --upgrade pip setuptools wheel
+    # Upgrade packaging tools conservatively.
+    # IMPORTANT: torch currently requires setuptools<82 in this project.
+    python3 -m pip install --upgrade pip wheel
     
-    # Check if dependencies are already installed
+    # Check if dependencies are already installed (by package metadata, not import name)
     if [ -f "ml-python/requirements.txt" ]; then
         info "Checking installed Python packages..."
         MISSING_DEPS=0
+        TMP_REQ_CHECK=$(mktemp)
         
         while IFS= read -r line; do
             # Skip empty lines and comments
             [[ -z "$line" || "$line" =~ ^# ]] && continue
-            
-            # Extract package name (before any version specifier)
-            PKG_NAME=$(echo "$line" | sed 's/[<>=!].*//' | xargs)
-            
-            if python3 -c "import $PKG_NAME" 2>/dev/null; then
+
+            if python3 -c "import importlib.metadata as m; import packaging.requirements as r; req=r.Requirement('$line'); v=m.version(req.name); raise SystemExit(0 if ((not req.specifier) or (v in req.specifier)) else 1)" 2>/dev/null; then
+                PKG_NAME=$(echo "$line" | sed 's/[<>=!].*//' | xargs)
                 info "  ✓ $PKG_NAME already installed"
             else
-                info "  ✗ $PKG_NAME not found"
+                PKG_NAME=$(echo "$line" | sed 's/[<>=!].*//' | xargs)
+                info "  ✗ $PKG_NAME missing/incompatible"
+                echo "$line" >> "$TMP_REQ_CHECK"
                 MISSING_DEPS=1
             fi
         done < ml-python/requirements.txt
@@ -187,8 +215,10 @@ install_python_deps() {
             info "All Python dependencies already installed!"
         else
             info "Installing missing Python packages..."
-            python3 -m pip install -r ml-python/requirements.txt
+            python3 -m pip install -r "$TMP_REQ_CHECK"
         fi
+
+        rm -f "$TMP_REQ_CHECK"
     else
         error "ml-python/requirements.txt not found!"
     fi
@@ -203,9 +233,14 @@ build_rust_tui() {
     cd tui-rust
     cargo build --release
     cd ..
-    
+
+    RUST_BIN_PATH=$(detect_rust_binary_path || true)
     info "Rust TUI built successfully"
-    info "Binary location: tui-rust/target/release/tui-rust"
+    if [ -n "$RUST_BIN_PATH" ]; then
+        info "Binary location: $RUST_BIN_PATH"
+    else
+        warn "Could not auto-detect Rust binary in tui-rust/target/release"
+    fi
 }
 
 # Create convenience symlinks
@@ -215,10 +250,16 @@ create_symlinks() {
     # Create bin directory if it doesn't exist
     mkdir -p bin
     
+    if [ -z "$RUST_BIN_PATH" ]; then
+        RUST_BIN_PATH=$(detect_rust_binary_path || true)
+    fi
+
     # Symlink to Rust binary
-    if [ -f "tui-rust/target/release/tui-rust" ]; then
-        ln -sf ../tui-rust/target/release/tui-rust bin/ecg-learn-studio
+    if [ -n "$RUST_BIN_PATH" ] && [ -f "$RUST_BIN_PATH" ]; then
+        ln -sf "../$RUST_BIN_PATH" bin/ecg-learn-studio
         info "Created symlink: bin/ecg-learn-studio"
+    else
+        warn "Skipping symlink: Rust binary not found"
     fi
 }
 

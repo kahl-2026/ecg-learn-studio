@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::config::Theme;
 use anyhow::Result;
 use crossterm::event::KeyEvent;
 use ratatui::{
@@ -9,7 +10,7 @@ use ratatui::{
     Frame,
 };
 
-use super::{create_layout, render_header, render_footer};
+use super::{create_layout, render_footer, render_header, render_status, StatusType};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let (header_area, content_area, footer_area) = create_layout(frame);
@@ -102,6 +103,14 @@ fn render_content(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
             Style::default().fg(status_color),
         ),
     ]));
+    menu_lines.push(Line::from(""));
+    let theme_name = match app.config.theme {
+        Theme::Default => "Default",
+        Theme::Colorblind => "Colorblind",
+        Theme::Monochrome => "Monochrome",
+    };
+    menu_lines.push(Line::from(format!("Theme: {}", theme_name)));
+    menu_lines.push(Line::from(format!("Python: {}", app.config.python_path)));
 
     let menu = Paragraph::new(menu_lines)
         .block(Block::default().borders(Borders::ALL).title("Quick Start"))
@@ -109,7 +118,12 @@ fn render_content(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
 
     frame.render_widget(menu, chunks[1]);
 
-    // Disclaimer
+    // Disclaimer + status
+    let disclaimer_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(4), Constraint::Length(1)])
+        .split(chunks[2]);
+
     let disclaimer = Paragraph::new(vec![
         Line::from(""),
         Line::from(Span::styled(
@@ -126,7 +140,14 @@ fn render_content(frame: &mut Frame, area: ratatui::layout::Rect, app: &App) {
     .alignment(Alignment::Center)
     .style(Style::default().fg(Color::Yellow));
 
-    frame.render_widget(disclaimer, chunks[2]);
+    frame.render_widget(disclaimer, disclaimer_chunks[0]);
+
+    let status_type = if app.backend_status.connected {
+        StatusType::Success
+    } else {
+        StatusType::Warning
+    };
+    render_status(frame, disclaimer_chunks[1], &app.backend_status.message, status_type);
 }
 
 pub fn handle_input(_app: &mut App, _key: KeyEvent) -> Result<()> {

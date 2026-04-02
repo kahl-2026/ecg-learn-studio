@@ -71,6 +71,8 @@ cd ecg-learn-studio
 
 # Install dependencies
 make install
+# or run full bootstrap
+./scripts/setup.sh
 
 # Build the application
 make build
@@ -82,12 +84,14 @@ make sample-data
 make run
 ```
 
+`./scripts/setup.sh` now checks requirement compatibility first and only installs missing/incompatible packages, avoiding repeated reinstalls.
+
 ### First Steps
 
 1. **Press `L`** to start learning ECG basics
 2. **Press `E`** to explore sample ECG signals
 3. **Press `T`** to train your first model
-4. **Press `Q`** to test your knowledge with a quiz
+4. **Press `Z`** to test your knowledge with Quiz mode
 5. **Press `?`** for help anytime
 
 ## Downloading Real Datasets

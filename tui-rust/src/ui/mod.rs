@@ -72,14 +72,9 @@ pub fn render_footer(frame: &mut Frame, area: Rect, hotkeys: Vec<(&str, &str)>) 
 /// Render an error popup in the center of the screen
 pub fn render_error_popup(frame: &mut Frame, error_message: &str) {
     let area = frame.size();
-    
-    // Calculate popup size and position
     let popup_width = (area.width * 60 / 100).min(60);
-    let popup_height = 7.min(area.height - 4);
-    let popup_x = (area.width - popup_width) / 2;
-    let popup_y = (area.height - popup_height) / 2;
-    
-    let popup_area = Rect::new(popup_x, popup_y, popup_width, popup_height);
+    let popup_height = 7.min(area.height.saturating_sub(4));
+    let popup_area = centered_rect(popup_width, popup_height, area);
     
     // Clear the area behind the popup
     frame.render_widget(Clear, popup_area);
@@ -184,34 +179,4 @@ pub fn centered_rect(width: u16, height: u16, area: Rect) -> Rect {
     let x = area.x + (area.width.saturating_sub(width)) / 2;
     let y = area.y + (area.height.saturating_sub(height)) / 2;
     Rect::new(x, y, width.min(area.width), height.min(area.height))
-}
-
-/// Render a confirmation dialog
-pub fn render_confirm_dialog(frame: &mut Frame, title: &str, message: &str) {
-    let area = frame.size();
-    let popup_area = centered_rect(50, 7, area);
-    
-    frame.render_widget(Clear, popup_area);
-    
-    let dialog = Block::default()
-        .title(format!(" {} ", title))
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow))
-        .style(Style::default().bg(Color::Black));
-    
-    let content = Paragraph::new(vec![
-        Line::from(""),
-        Line::from(message),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled("[Y]", Style::default().fg(Color::Green).add_modifier(Modifier::BOLD)),
-            Span::raw(" Yes  "),
-            Span::styled("[N]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)),
-            Span::raw(" No"),
-        ]),
-    ])
-    .block(dialog)
-    .alignment(Alignment::Center);
-    
-    frame.render_widget(content, popup_area);
 }

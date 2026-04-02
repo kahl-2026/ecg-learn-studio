@@ -5,11 +5,11 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Gauge, Paragraph, Wrap, Table, Row, Cell},
+    widgets::{Block, Borders, Paragraph, Wrap, Table, Row, Cell},
     Frame,
 };
 
-use super::{create_layout, render_header, render_footer};
+use super::{create_layout, render_error_popup, render_footer, render_header, render_progress};
 
 pub fn render(frame: &mut Frame, app: &App) {
     let (header_area, content_area, footer_area) = create_layout(frame);
@@ -41,11 +41,8 @@ pub fn render(frame: &mut Frame, app: &App) {
 
     // Show error if any
     if let Some(ref error) = app.train_state.error {
-        let error_msg = Paragraph::new(format!("Training Error: {}", error))
-            .style(Style::default().fg(Color::Red))
-            .block(Block::default().borders(Borders::ALL).title("Error"))
-            .alignment(Alignment::Center);
-        frame.render_widget(error_msg, content_area);
+        render_config_screen(frame, app, content_area);
+        render_error_popup(frame, error);
         render_footer(frame, footer_area, vec![("R", "Retry"), ("ESC", "Back")]);
         return;
     }
@@ -146,17 +143,10 @@ fn render_training_progress(frame: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
-    // Progress bar
     let progress = app.train_state.training_progress;
     let epoch = app.train_state.current_epoch;
     let total_epochs = app.train_state.epochs;
-    
-    let gauge = Gauge::default()
-        .block(Block::default().borders(Borders::ALL).title(format!("Training Progress - Epoch {}/{}", epoch, total_epochs)))
-        .gauge_style(Style::default().fg(Color::Green).bg(Color::DarkGray))
-        .percent((progress * 100.0) as u16)
-        .label(format!("{:.1}%", progress * 100.0));
-    frame.render_widget(gauge, chunks[0]);
+    render_progress(frame, chunks[0], &format!("Epoch {}/{}", epoch, total_epochs), progress);
 
     // Status info
     let model_name = match app.train_state.model_type {
