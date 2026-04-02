@@ -7,11 +7,13 @@ use ratatui::{
     widgets::{Axis, Block, Borders, Chart, Dataset, GraphType},
 };
 
+#[allow(dead_code)]
 pub struct ECGChart {
     pub data: Vec<(f64, f64)>,
     pub title: String,
 }
 
+#[allow(dead_code)]
 impl ECGChart {
     pub fn new(signal: &[f64], title: String) -> Self {
         let data: Vec<(f64, f64)> = signal

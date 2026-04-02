@@ -20,9 +20,11 @@ pub enum Screen {
 
 pub struct App {
     pub current_screen: Screen,
+    #[allow(dead_code)]
     pub config: Config,
     pub backend: PythonBackend,
     pub backend_status: BackendStatus,
+    #[allow(dead_code)]
     pub quit_requested: bool,
 }
 
